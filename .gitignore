@@ -4,3 +4,4 @@ __pycache__/
 .env
 *.bin
 *.log
+atc_nlp/atco2/
