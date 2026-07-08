@@ -64,13 +64,17 @@ def gen_heading_change(cs):
 
 
 def gen_altitude_change(cs):
-    alt = random.choice(range(2000, 10001, 500))
-    verb = random.choice(["climb and maintain", "descend and maintain", "maintain"])
-    templates = [
-        f"{speak_callsign(cs)}, {verb} {speak_altitude(alt)}",
-        f"{speak_callsign(cs)}, {verb} {speak_altitude(alt)}, expect higher in one zero minutes",
-    ]
-    return random.choice(templates), {
+    if random.random() < 0.35:
+        # European/IFR style: flight level
+        fl = random.choice(range(50, 245, 5))       # FL050-FL240
+        verb = random.choice(["climb to", "descend to", "climb", "descend"])
+        text = f"{speak_callsign(cs)}, {verb} flight level {speak_digits(f'{fl:02d}' if fl < 100 else str(fl))}"
+        alt = fl * 100
+    else:
+        alt = random.choice(range(2000, 10001, 500))
+        verb = random.choice(["climb and maintain", "descend and maintain", "maintain"])
+        text = f"{speak_callsign(cs)}, {verb} {speak_altitude(alt)}"
+    return text, {
         "callsign": cs, "intent": "altitude_change",
         "heading_deg": None, "altitude_ft": alt,
         "runway": None, "frequency": None,
@@ -117,6 +121,47 @@ def gen_go_around(cs):
     }
 
 
+FREQS = ["118.1", "119.6", "121.5", "124.0", "127.35", "134.56"]
+
+
+def speak_frequency(f):
+    """'121.5' -> 'one two one decimal five'"""
+    whole, dec = f.split(".")
+    return f"{speak_digits(whole)} decimal {speak_digits(dec)}"
+
+
+def gen_frequency_change(cs):
+    freq = random.choice(FREQS)
+    station = random.choice(["tower", "ground", "approach", "departure", "center"])
+    templates = [
+        f"{speak_callsign(cs)}, contact {station} {speak_frequency(freq)}",
+        f"{speak_callsign(cs)}, contact {station} on {speak_frequency(freq)}",
+        f"{speak_callsign(cs)}, {station} {speak_frequency(freq)}, good day",
+    ]
+    return random.choice(templates), {
+        "callsign": cs, "intent": "frequency_change",
+        "heading_deg": None, "altitude_ft": None,
+        "runway": None, "frequency": freq,
+    }
+
+
+def gen_hold(cs):
+    if random.random() < 0.4:
+        text = f"{speak_callsign(cs)}, hold position"
+        rwy = None
+    else:
+        rwy = random.choice(RUNWAYS)
+        text = random.choice([
+            f"{speak_callsign(cs)}, hold short runway {speak_digits(rwy)}",
+            f"{speak_callsign(cs)}, hold short of runway {speak_digits(rwy)}",
+        ])
+    return text, {
+        "callsign": cs, "intent": "hold",
+        "heading_deg": None, "altitude_ft": None,
+        "runway": rwy, "frequency": None,
+    }
+
+
 def gen_unknown(_cs):
     templates = [
         "traffic two o'clock five miles southbound",
@@ -133,7 +178,8 @@ def gen_unknown(_cs):
 
 
 GENERATORS = [gen_heading_change, gen_altitude_change, gen_takeoff,
-              gen_landing, gen_go_around, gen_unknown]
+              gen_landing, gen_go_around, gen_unknown,
+              gen_frequency_change, gen_hold]
 
 
 def main(n=2000):

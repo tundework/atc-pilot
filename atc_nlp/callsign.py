@@ -21,15 +21,20 @@ MAKES = {"cessna", "piper", "skyhawk", "cherokee", "november"}
 
 
 def extract_callsign(text: str) -> str | None:
-    """Extract a callsign (digits + phonetic letters) from spoken ATC text.
-    Callsigns must contain at least one letter — this rejects headings,
-    altitudes, and other digit-only runs."""
+    """Extract a US GA callsign (digits + phonetic letters) from spoken ATC
+    text. A run only starts after a recognized make word (cessna/november/...),
+    which rejects airline-style callsigns like 'Fraction One Zero Three Mike'
+    that happen to end in spoken digits + a letter."""
     words = re.findall(r"[a-z-']+", text.lower())
 
     runs = []
     current = []
     has_letter = False
+    active = False
     for w in words:
+        if not active:
+            active = w in MAKES
+            continue
         if w in DIGITS:
             current.append(DIGITS[w])
         elif w in PHONETIC and current:  # letters only after digits started
@@ -38,8 +43,8 @@ def extract_callsign(text: str) -> str | None:
         else:
             if current and has_letter:
                 runs.append("".join(current))
-            current = []
-            has_letter = False
+            current, has_letter = [], False
+            active = w in MAKES
     if current and has_letter:
         runs.append("".join(current))
 
@@ -71,6 +76,8 @@ if __name__ == "__main__":
         ("hey what's the weather like today", None),
         ("turn left heading two seven zero, cessna one seven two alpha bravo", "N172AB"),
         ("traffic two o'clock five miles southbound", None),
+        ("fraction one zero three mike wind one four zero degrees four knots", None),
+        ("quadriga one six three foxtrot descend to flight level seven zero", None),
     ]
     MY_CALLSIGN = "N172AB"
     for text, expected in tests:

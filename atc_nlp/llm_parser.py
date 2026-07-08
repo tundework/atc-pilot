@@ -39,6 +39,12 @@ Output: {"callsign": "N172AB", "intent": "landing_clearance", "heading_deg": nul
 
 Input: "Cessna one seven two alpha bravo, go around"
 Output: {"callsign": "N172AB", "intent": "go_around", "heading_deg": null, "altitude_ft": null, "runway": null, "frequency": null}
+
+Input: "Cessna one seven two alpha bravo, contact tower one two one decimal five"
+Output: {"callsign": "N172AB", "intent": "frequency_change", "heading_deg": null, "altitude_ft": null, "runway": null, "frequency": "121.5"}
+
+Input: "Cessna one seven two alpha bravo, hold short runway two seven"
+Output: {"callsign": "N172AB", "intent": "hold", "heading_deg": null, "altitude_ft": null, "runway": "27", "frequency": null}
 """
 
 
@@ -49,16 +55,16 @@ def parse_instruction(text: str) -> dict:
         "prompt": f'Input: "{text}"\nOutput:',
         "stream": False,
         "format": "json",
+        "options": {"temperature": 0},
     }, timeout=60)
     resp.raise_for_status()
-    d = validate(json.loads(resp.json()["response"]))
-    d["callsign"] = extract_callsign(text)   # rules override LLM
+    d = json.loads(resp.json()["response"])
     d["callsign"] = extract_callsign(text)      # rules override LLM
     d["heading_deg"] = extract_heading(text)    # rules override LLM
     alt = extract_altitude(text)
     if alt is not None:
         d["altitude_ft"] = alt
-    return d
+    return validate(d)
 
 
 def validate(d: dict) -> dict:
@@ -91,9 +97,6 @@ def validate(d: dict) -> dict:
         except (TypeError, ValueError):
             d["altitude_ft"] = None
             d["intent"] = "unknown"
-            # Callsigns come from rules, not the LLM
-            d["callsign"] = extract_callsign(d.get("_raw_text", "")) if "_raw_text" in d else d["callsign"]
-            
 
     return d
 

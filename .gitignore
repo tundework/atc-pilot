@@ -5,3 +5,4 @@ __pycache__/
 *.bin
 *.log
 atc_nlp/atco2/
+atc_nlp/bert_intent_model/
