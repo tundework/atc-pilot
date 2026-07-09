@@ -8,3 +8,4 @@ atc_nlp/atco2/
 atc_nlp/bert_intent_model/
 *.onnx
 *.onnx.json
+voice/incoming/
