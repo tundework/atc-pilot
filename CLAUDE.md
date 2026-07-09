@@ -155,6 +155,29 @@ fixes closed the gap — see below.
     from code is a Week 6 TODO.
 12. LLM cold start ~8s after Ollama restart — live system needs a warmup query.
 13. System-Python leftover packages from the env saga — dead weight, no urgency.
+14. **bert_parser.py doesn't extract runway numbers** — `runway` is hardcoded
+    `None` always (comment: "LLM extracted this; BERT pipeline doesn't (yet)").
+    Confirmed live in Week 5 voice pipeline testing: "cleared for takeoff runway
+    two seven" parsed correctly as `takeoff_clearance` but with `rwy=None`.
+    readback.py's takeoff/landing branches now guard this correctly (FIXED:
+    they used to silently emit "Cleared for takeoff runway , N172AB" — a
+    malformed readback that looked like a confirmed clearance with the runway
+    silently blanked; now they emit "Say again runway" instead, matching the
+    existing heading/altitude/frequency degradation pattern). The underlying
+    extraction gap itself is NOT YET FIXED — same category of issue as #9.
+15. **Week 6 supervisor should be suspicious of "all extracted values None"
+    intents, not just missing individual values.** Observed live: BERT given a
+    bare, truncated utterance ("Cessna one seven two alpha bravo" with nothing
+    else — audio cut off before the actual instruction) had to pick some
+    intent out of 8 classes and guessed `heading_change`. The readback
+    ("Say again heading") is safe in isolation (asks for clarification, cedes
+    no wrong action) but commits to the guessed intent's phrasing — a
+    controller who actually said a garbled landing clearance would hear "say
+    again heading" and could reasonably be confused about what was
+    unintelligible. When callsign is the *only* thing extracted and every
+    other field is None, the supervisor should prefer a generic "say again"
+    over trusting the classified intent. No code change yet — flagging for
+    the Week 6 supervisor design.
 
 ## Roadmap (remaining)
 

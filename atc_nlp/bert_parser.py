@@ -1,10 +1,13 @@
+import os
 import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 from callsign import extract_callsign
 from atc_numbers import extract_heading, extract_altitude
 
-MODEL_DIR = "bert_intent_model"
+# Anchor to this file's own directory, not the caller's cwd
+MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         "bert_intent_model")
 
 # Load once at import — this is the "cold start" cost, paid one time
 _device = "cuda" if torch.cuda.is_available() else "cpu"
