@@ -178,6 +178,19 @@ fixes closed the gap — see below.
     other field is None, the supervisor should prefer a generic "say again"
     over trusting the classified intent. No code change yet — flagging for
     the Week 6 supervisor design.
+16. **Shortened callsigns (no make word) are ignored — standard ATC phrasing
+    misses.** Observed live in Week 5: "One seven two alpha bravo, turn left
+    heading two seven zero" (no "Cessna" — normal controller shorthand after
+    first contact) -> extract_callsign() returns None -> FOR ME: False ->
+    silence. Fail-safe in the right direction, but real ATC uses the short
+    form constantly. Do NOT just loosen the MAKES-word gate in callsign.py —
+    it exists to stop airline-style callsigns ("Fraction One Zero Three
+    Mike") from false-matching, an earned fix from eval failures. Better
+    design for Week 6: when open extraction finds nothing, fall back to a
+    targeted search for OUR OWN callsign's spoken form ("one seven two alpha
+    bravo" appearing verbatim in the text -> it's us). matches() already
+    anticipates suffix shortening; this is the extraction-side counterpart.
+    NOT YET FIXED.
 
 ## Roadmap (remaining)
 
