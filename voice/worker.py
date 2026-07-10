@@ -77,6 +77,13 @@ if __name__ == "__main__":
 
     print("Worker ready, waiting for recordings from watch.py ... (Ctrl+C to stop)")
     with open(QUEUE_FILE, "r") as q:
+        # Seek to end: the queue file is never truncated across runs (by
+        # design — watch.py only appends), so opening at position 0 would
+        # silently replay every recording ever queued, from every past
+        # session, on every worker restart. Observed live: a fresh start
+        # replayed an entire prior flight (RTL and landing) with no mic
+        # input. Only lines appended AFTER this process starts are ours.
+        q.seek(0, os.SEEK_END)
         try:
             while True:
                 line = q.readline()
