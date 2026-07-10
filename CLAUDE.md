@@ -6,7 +6,9 @@ An AI-piloted RC plane (simulation-first) that responds to **spoken ATC instruct
 Pipeline: microphone → speech-to-text → instruction parser → safety supervisor → MAVLink → ArduPilot SITL.
 
 **Deliverable:** YouTube video + blog post + this public repo (github.com/tundework/atc-pilot).
-**Timeline:** 12-week plan at ~20 hrs/week. Currently **mid-Week 4**.
+**Timeline:** 12-week plan at ~20 hrs/week. Currently **starting Week 7** —
+Weeks 1-6 complete (see [docs/week6_milestone.md](docs/week6_milestone.md)
+for the first fully voice-commanded flight).
 **Owner background:** one semester of deep learning; learning Linux/git/MAVLink through this project.
 
 ## Environment & conventions (IMPORTANT)
@@ -44,7 +46,7 @@ Pipeline: microphone → speech-to-text → instruction parser → safety superv
 ## Architecture
 
 ```
-[Mic] → [VAD] → [Whisper ASR]          (Week 5, not built)
+[Mic] → [VAD] → [Whisper ASR]          (Week 5, DONE — live, <1s response)
                      |
               [ATC PARSER]              (swappable implementations)
                 text → intent classifier → one of 8 intents
@@ -54,9 +56,9 @@ Pipeline: microphone → speech-to-text → instruction parser → safety superv
                      |
               [Callsign filter]         (only act on MY instructions)
                      |
-              [Supervisor]              (Week 6, not built)
+              [Supervisor]              (Week 6, DONE — phase-aware gates, JSONL audit trail)
                      |
-              [FlightAPI]               (Week 2, DONE — 18 methods, 5 pytest passing)
+              [FlightAPI]               (Week 2, DONE — verified calls (Week 6 Day 4))
                      |
               [ArduPilot SITL]
 ```
@@ -96,7 +98,9 @@ atc-pilot/
 │   └── atco2/               # 288MB real dataset — gitignored, licensed data
 ├── tests/test_flight_api.py # 5 pytest tests vs live SITL
 ├── tests/test_atc_nlp.py    # 27 pure unit tests for rule extractors (no SITL/GPU)
-├── voice/ supervisor/ scenarios/  # empty — Weeks 5, 6, 8
+├── voice/                   # ASR, TTS, pipeline.py, watch.py + worker.py (live, Week 5/6)
+├── supervisor/              # supervisor.py (4 gates, phase state machine, decisions.jsonl)
+├── scenarios/                # empty — Week 8
 └── README.md
 ```
 
@@ -219,15 +223,26 @@ fixes closed the gap — see below.
 
 ## Roadmap (remaining)
 
-- **Week 4 (now):** temp=0 fix -> stable LLM baseline -> bert_parser.py ->
-  head-to-head benchmark (synthetic + real + latency + determinism) -> docs/benchmark.md.
-  This table is the video/blog centerpiece.
-- **Week 5:** Voice — faster-whisper (vad_filter=True) -> parser -> template readback
-  -> Piper TTS. <2s round trip target.
-- **Week 6:** Supervisor — envelope validation, flight-phase state machine, callsign
-  gate, JSONL decision logging. Only the supervisor calls FlightAPI. Plus mission
-  upload from code + heading->waypoint.
-- **Week 7:** Integration; first full voice-controlled mission.
+- ~~**Week 4:** temp=0 fix -> stable LLM baseline -> bert_parser.py -> head-to-head
+  benchmark~~ **DONE** — see docs/benchmark.md.
+- ~~**Week 5:** Voice — faster-whisper -> parser -> template readback -> Piper TTS~~
+  **DONE** — live end to end, <1s response.
+- ~~**Week 6:** Supervisor — envelope validation, flight-phase state machine, callsign
+  gate, JSONL decision logging. Mission upload from code + heading->waypoint.~~
+  **DONE** — see docs/week6_milestone.md for the first fully voice-commanded flight
+  (takeoff -> airborne (telemetry-confirmed) -> heading change -> landing clearance
+  -> touchdown (telemetry-confirmed), all five steps traced in decisions.jsonl).
+- **Week 7 (now):** Integration.
+  - Formalize a single entry point (currently watch.py + worker.py run by
+    convention) — document the exact startup runbook.
+  - Handle the seams deliberately: duplicate clearances (phase gate should
+    already reject a repeat "cleared for takeoff" — verify it), and worker
+    crashes mid-flight (does ArduPilot's own link-loss failsafe RTL the
+    plane independent of the Python process?).
+  - Run one complete mission (takeoff -> vector -> altitude change -> landing
+    clearance -> touchdown) 3-5 times back to back with zero manual
+    intervention — Week 6 Day 5 proved the concept works once; Week 7's bar
+    is proving it works *reliably*.
 - **Week 8:** 4 scenarios + 1 failure demo, repeatable via pre-recorded TTS ATC.
 - **Week 9:** Adversarial suite (similar callsigns, garbled audio, phase-invalid
   instructions) — supervisor must pass 100%.
