@@ -10,3 +10,4 @@ atc_nlp/bert_intent_model/
 *.onnx.json
 voice/incoming/
 voice/*.wav
+supervisor/decisions.jsonl
