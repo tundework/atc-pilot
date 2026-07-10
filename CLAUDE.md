@@ -83,6 +83,7 @@ atc-pilot/
 │   ├── data_train/test.jsonl, bert_train/test.jsonl
 │   └── atco2/               # 288MB real dataset — gitignored, licensed data
 ├── tests/test_flight_api.py # 5 pytest tests vs live SITL
+├── tests/test_atc_nlp.py    # 27 pure unit tests for rule extractors (no SITL/GPU)
 ├── voice/ supervisor/ scenarios/  # empty — Weeks 5, 6, 8
 └── README.md
 ```
@@ -142,13 +143,10 @@ fixes closed the gap — see below.
      route/wind context -> "unknown".
    - Compound/unusual phrasing: "when departure low defined climb to flight level
      nine zero" -> "unknown".
-9. **extract_altitude() in atc_numbers.py doesn't handle flight levels** — "flight
-   level seven zero" should yield 7000 ft but currently returns None (only
-   "N thousand" / "N hundred" spoken forms are handled). Not blocking the intent
-   benchmark (BERT/LLM both still call altitude_change correctly via the
-   classifier), but the *value* extraction is silently wrong for FL-phrased
-   altitudes. ~5-line fix. Will matter in Week 6 when the supervisor validates
-   altitudes. NOT YET FIXED.
+9. ~~extract_altitude() doesn't handle flight levels~~ **FIXED (Week 6 Day 1):**
+   added extract_flight_level() to atc_numbers.py ("flight level seven zero" ->
+   7000.0; FL range 10–450 enforced); extract_altitude() checks flight level
+   first (an utterance won't contain both). Real-data altitude values: 5/5.
 10. `set_heading()` (GUIDED yaw) unreliable on fixed-wing — planned fix in Week 6:
     project heading into a waypoint and call goto_waypoint.
 11. RTL only lands if a mission with DO_LAND_START+LAND is loaded; mission upload
@@ -164,7 +162,16 @@ fixes closed the gap — see below.
     malformed readback that looked like a confirmed clearance with the runway
     silently blanked; now they emit "Say again runway" instead, matching the
     existing heading/altitude/frequency degradation pattern). The underlying
-    extraction gap itself is NOT YET FIXED — same category of issue as #9.
+    extraction gap is now **FIXED (Week 6 Day 1):** extract_runway() in
+    atc_numbers.py handles "runway two seven" -> "27", side letters ("one
+    eight left" -> "18L"), leading zeros ("zero four" -> "04"), range check
+    1–36, plus a keyword-less fallback anchored on a side word for real ATC
+    phrasing ("one six right cleared to land" -> "16R" — the anchor means
+    bare digit runs like headings/winds can never match). Wired into
+    bert_parser.py. Real-data runway values: 12/12 (was 0/12). readback.py
+    also gained spoken_runway() ("18L" -> "one eight left" for TTS) and its
+    altitude readback is now direction-neutral ("Maintain seven thousand" —
+    it used to say "Climb and maintain" even for descend instructions).
 15. **Week 6 supervisor should be suspicious of "all extracted values None"
     intents, not just missing individual values.** Observed live: BERT given a
     bare, truncated utterance ("Cessna one seven two alpha bravo" with nothing
@@ -190,7 +197,13 @@ fixes closed the gap — see below.
     targeted search for OUR OWN callsign's spoken form ("one seven two alpha
     bravo" appearing verbatim in the text -> it's us). matches() already
     anticipates suffix shortening; this is the extraction-side counterpart.
-    NOT YET FIXED.
+    **FIXED (Week 6 Day 1):** contains_my_callsign() in callsign.py builds our
+    callsign's spoken token sequence and searches for it (full form or any
+    suffix >= 3 tokens; tree/fife/niner spoken variants normalized). MAKES
+    gate untouched — airline callsigns still rejected, and N172AD's short
+    form still doesn't match N172AB. pipeline.py ownership check is now
+    two-tier: `matches(extracted, MY) or contains_my_callsign(text, MY)`.
+    Verified: the exact live-miss utterance now gets a correct readback.
 
 ## Roadmap (remaining)
 

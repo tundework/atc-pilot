@@ -18,6 +18,17 @@ def spoken_altitude(ft) -> str:
     return spoken_digits(ft)
 
 
+def spoken_runway(rwy: str) -> str:
+    """'27' -> 'two seven', '18L' -> 'one eight left'"""
+    sides = {"L": "left", "R": "right", "C": "center"}
+    digits = "".join(c for c in rwy if c.isdigit())
+    # per-char so 'runway 04' keeps its leading zero ('zero four')
+    out = " ".join(spoken_digits(c) for c in digits) if digits else rwy
+    if rwy and rwy[-1] in sides:
+        out += " " + sides[rwy[-1]]
+    return out
+
+
 def generate_readback(instruction: dict) -> str:
     """Structured instruction in, ICAO-style readback text out."""
     intent = instruction["intent"]
@@ -27,15 +38,13 @@ def generate_readback(instruction: dict) -> str:
         rwy = instruction.get("runway")
         if not rwy:
             return f"Say again runway, {cs}."
-        rwy_spoken = spoken_digits(rwy) if rwy.isdigit() else rwy
-        return f"Cleared for takeoff runway {rwy_spoken}, {cs}."
+        return f"Cleared for takeoff runway {spoken_runway(rwy)}, {cs}."
 
     if intent == "landing_clearance":
         rwy = instruction.get("runway")
         if not rwy:
             return f"Say again runway, {cs}."
-        rwy_spoken = spoken_digits(rwy) if rwy.isdigit() else rwy
-        return f"Cleared to land runway {rwy_spoken}, {cs}."
+        return f"Cleared to land runway {spoken_runway(rwy)}, {cs}."
 
     if intent == "heading_change":
         hdg = instruction.get("heading_deg")
@@ -47,7 +56,9 @@ def generate_readback(instruction: dict) -> str:
         alt = instruction.get("altitude_ft")
         if alt is None:
             return f"Say again altitude, {cs}."
-        return f"Climb and maintain {spoken_altitude(alt)}, {cs}."
+        # Direction-neutral: the parse dict doesn't carry climb/descend, and
+        # reading back 'climb' for a descend instruction is worse than neither
+        return f"Maintain {spoken_altitude(alt)}, {cs}."
 
     if intent == "go_around":
         return f"Going around, {cs}."
@@ -55,7 +66,7 @@ def generate_readback(instruction: dict) -> str:
     if intent == "hold":
         rwy = instruction.get("runway")
         if rwy:
-            return f"Holding short runway {spoken_digits(rwy) if rwy.isdigit() else rwy}, {cs}."
+            return f"Holding short runway {spoken_runway(rwy)}, {cs}."
         return f"Holding position, {cs}."
 
     if intent == "frequency_change":

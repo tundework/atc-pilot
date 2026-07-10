@@ -6,7 +6,7 @@ sys.path.insert(0, "../atc_nlp")   # so we can import the parser
 
 from asr import transcribe
 from bert_parser import parse_instruction
-from callsign import matches
+from callsign import matches, contains_my_callsign
 from readback import generate_readback
 from speak import speak, _play
 
@@ -28,7 +28,8 @@ def process_audio(wav_path: str, verbose: bool = True) -> dict:
     trace["instruction"] = instruction
     trace["t_parse_ms"] = (t2 - t1) * 1000
 
-    trace["for_me"] = matches(instruction["callsign"], MY_CALLSIGN)
+    trace["for_me"] = matches(instruction["callsign"], MY_CALLSIGN) \
+        or contains_my_callsign(text, MY_CALLSIGN)
 
     if trace["for_me"]:
         rb = generate_readback(instruction)

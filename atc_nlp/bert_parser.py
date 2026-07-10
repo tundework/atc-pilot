@@ -3,7 +3,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 from callsign import extract_callsign
-from atc_numbers import extract_heading, extract_altitude
+from atc_numbers import extract_heading, extract_altitude, extract_runway
 
 # Anchor to this file's own directory, not the caller's cwd
 MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -30,7 +30,7 @@ def parse_instruction(text: str) -> dict:
         "intent": intent,
         "heading_deg": extract_heading(text),
         "altitude_ft": None,
-        "runway": None,       # LLM extracted this; BERT pipeline doesn't (yet) — noted in benchmark
+        "runway": extract_runway(text),
         "frequency": None,
     }
     alt = extract_altitude(text)

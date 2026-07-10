@@ -67,6 +67,32 @@ def matches(extracted: str | None, my_callsign: str) -> bool:
     return False
 
 
+def contains_my_callsign(text: str, my_callsign: str = "N172AB") -> bool:
+    """Targeted search for OUR callsign's spoken form (full or ATC-shortened
+    suffix), without loosening the MAKES gate on extract_callsign().
+    'one seven two alpha bravo, turn left...' -> True for N172AB.
+    Extraction-side counterpart of matches()'s suffix shortening."""
+    words = re.findall(r"[a-z-']+", text.lower())
+    # Build the spoken token sequence for our callsign body (drop the N prefix)
+    rev_digits = {v: k for k, v in DIGITS.items()
+                  if k not in ("tree", "fife", "niner")}
+    rev_phon = {v: k for k, v in PHONETIC.items()
+                if k not in ("juliet", "x-ray")}
+    spoken = [rev_digits[c] if c.isdigit() else rev_phon[c]
+              for c in my_callsign[1:]]
+    # Accept spoken-variant tokens (tree/fife/niner, x-ray) when matching
+    variants = {"tree": "three", "fife": "five", "niner": "nine",
+                "x-ray": "xray", "juliet": "juliett"}
+    norm = [variants.get(w, w) for w in words]
+    # Full form or any suffix of length >= 3 tokens (ATC shortening)
+    for start in range(len(spoken) - 2):
+        seq = spoken[start:]
+        for i in range(len(norm) - len(seq) + 1):
+            if norm[i:i + len(seq)] == seq:
+                return True
+    return False
+
+
 if __name__ == "__main__":
     tests = [
         ("cessna one seven two alpha bravo, turn left heading two seven zero", "N172AB"),

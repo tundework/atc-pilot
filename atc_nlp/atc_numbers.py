@@ -26,9 +26,32 @@ def extract_heading(text: str) -> float | None:
     return None
 
 
+def extract_flight_level(text: str) -> float | None:
+    """'descend to flight level seven zero' -> 7000.0 (FL70 = 7000 ft)"""
+    words = re.findall(r"[a-z-']+", text.lower())
+    for i in range(len(words) - 1):
+        if words[i] == "flight" and words[i + 1] == "level":
+            digits = []
+            for nxt in words[i + 2:]:
+                if nxt in DIGITS:
+                    digits.append(DIGITS[nxt])
+                else:
+                    break
+            if digits:
+                fl = float("".join(digits))
+                if 10 <= fl <= 450:
+                    return fl * 100
+    return None
+
+
 def extract_altitude(text: str) -> float | None:
     """'climb and maintain two thousand five hundred' -> 2500.0
-    Handles 'N thousand' and 'N hundred' spoken forms."""
+    Handles 'N thousand' / 'N hundred' spoken forms and flight levels
+    ('flight level seven zero' -> 7000.0). An utterance won't contain both,
+    so flight level wins if present."""
+    fl = extract_flight_level(text)
+    if fl is not None:
+        return fl
     words = re.findall(r"[a-z-']+", text.lower())
     total = 0.0
     found = False
@@ -47,6 +70,43 @@ def extract_altitude(text: str) -> float | None:
             total += float(DIGITS[words[i - 1]]) * 100
             found = True
     return total if found else None
+
+
+SIDES = {"left": "L", "right": "R", "center": "C", "centre": "C"}
+
+
+def extract_runway(text: str) -> str | None:
+    """'cleared to land runway one eight left' -> '18L'.
+    Fallback for keyword-less real ATC ('one six right cleared to land'
+    -> '16R'): a 1-2 digit run anchored by a following side word."""
+    words = re.findall(r"[a-z-']+", text.lower())
+    for i, w in enumerate(words):
+        if w == "runway":
+            digits = []
+            j = i + 1
+            while j < len(words) and words[j] in DIGITS:
+                digits.append(DIGITS[words[j]])
+                j += 1
+            if not digits or not 1 <= int("".join(digits)) <= 36:
+                continue
+            rwy = "".join(digits)
+            if j < len(words) and words[j] in SIDES:
+                rwy += SIDES[words[j]]
+            return rwy
+    # No 'runway' keyword: require the side-word anchor, so bare numbers
+    # (headings, winds, frequencies) can never match
+    for i, w in enumerate(words):
+        if w in SIDES and i > 0:
+            digits = []
+            j = i - 1
+            while j >= 0 and words[j] in DIGITS and len(digits) < 2:
+                digits.insert(0, DIGITS[words[j]])
+                j -= 1
+            # reject if the digit run is longer than 2 (heading, not runway)
+            if digits and (j < 0 or words[j] not in DIGITS) \
+                    and 1 <= int("".join(digits)) <= 36:
+                return "".join(digits) + SIDES[w]
+    return None
 
 
 if __name__ == "__main__":
