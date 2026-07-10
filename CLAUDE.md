@@ -27,6 +27,18 @@ Pipeline: microphone → speech-to-text → instruction parser → safety superv
 - Ollama in WSL serving `llama3.2:3b` at http://localhost:11434 (GPU-accelerated;
   can OOM if Windows apps hog VRAM — restart ollama after freeing memory)
 - Key SITL params: `RTL_AUTOLAND=2`, `ARMING_CHECK=0` (sim only), `WP_RADIUS=30`
+- **SITL relaunches with `-w` wipe ALL params — tests must self-provision via
+  `FlightAPI.ensure_sim_params()`; never rely on ambient SITL state.** Also:
+  ensure_sim_params() must be refused/no-op'd on real hardware (ARMING_CHECK=0
+  is sim-only) — guard via autopilot type or an explicit `i_am_simulated=True`
+  flag, decided in Phase 2. And arming is REFUSED while the autopilot thinks
+  it's mid-landing-sequence (e.g. leftover RTL mode + landing mission from a
+  killed test) — reset to MANUAL first.
+- MAVProxy (system-Python install) currently crashes on a numpy 2.x/matplotlib
+  ABI mismatch (`_ARRAY_API not found`) — part of the issue-#13 env saga. Until
+  fixed, connect FlightAPI directly to SITL's own TCP port
+  (`tcp:127.0.0.1:5763` externally, or `tcp:127.0.0.1:5760` if nothing else
+  holds it) instead of the usual `udp:14550` MAVProxy relay.
 - Commit at the end of every session, even WIP. Placeholders in ALL CAPS mean "replace me."
 
 ## Architecture
