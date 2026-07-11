@@ -11,3 +11,4 @@ atc_nlp/bert_intent_model/
 voice/incoming/
 voice/*.wav
 supervisor/decisions.jsonl
+scenarios/out/
