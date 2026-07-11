@@ -50,10 +50,23 @@ def synth_and_queue(text):
     print(f"[synth] -> {out} :: {text}")
 
 
-def run_cmd(cmd, cwd=None, check_output_for=None, timeout=60):
-    p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT, text=True,
-                         env={**os.environ, "PYTHONUNBUFFERED": "1"})
+LOG_DIR = "/tmp/day4_reliability_logs"
+os.makedirs(LOG_DIR, exist_ok=True)
+
+
+def run_cmd(cmd, name, cwd=None):
+    # stdout MUST go to a file, not subprocess.PIPE: PIPE has a small fixed
+    # OS buffer, and if nothing keeps draining it the child process blocks
+    # forever on its own print() once the buffer fills — a classic
+    # subprocess deadlock. Observed live: run 1 (little output) worked,
+    # run 2's worker silently deadlocked mid-mission because this script
+    # stopped reading its stdout right after the readiness check.
+    log_path = os.path.join(LOG_DIR, f"{name}.log")
+    log_file = open(log_path, "w")
+    p = subprocess.Popen(cmd, cwd=cwd, stdout=log_file, stderr=subprocess.STDOUT,
+                         text=True, env={**os.environ, "PYTHONUNBUFFERED": "1"})
+    p._log_path = log_path
+    p._log_file = log_file
     return p
 
 
@@ -87,25 +100,27 @@ def launch_sitl():
     time.sleep(5)   # let it settle before hammering it with connects
 
 
-def launch_watcher_and_worker():
-    watcher = run_cmd([sys.executable, "watch.py"], cwd=VOICE_DIR)
+def launch_watcher_and_worker(run_idx):
+    watcher = run_cmd([sys.executable, "watch.py"], f"watcher_run{run_idx}", cwd=VOICE_DIR)
     time.sleep(1)
-    worker = run_cmd([sys.executable, "worker.py"], cwd=VOICE_DIR)
+    worker = run_cmd([sys.executable, "worker.py"], f"worker_run{run_idx}", cwd=VOICE_DIR)
     return watcher, worker
 
 
 def wait_for_worker_ready(worker_proc, timeout=90):
     deadline = time.time() + timeout
-    buf = ""
+    seen = 0
     while time.time() < deadline:
-        line = worker_proc.stdout.readline()
-        if line:
-            buf += line
-            print("  [worker] " + line.rstrip())
-            if "Worker ready" in line:
-                return True
-        else:
-            time.sleep(0.2)
+        if worker_proc.poll() is not None:
+            return False   # worker died during startup
+        with open(worker_proc._log_path) as f:
+            content = f.read()
+        if len(content) > seen:
+            print(content[seen:], end="")
+            seen = len(content)
+        if "Worker ready" in content:
+            return True
+        time.sleep(0.5)
     return False
 
 
@@ -130,7 +145,7 @@ def run_one_mission(run_idx):
     launch_sitl()
 
     print("=== starting watcher + worker ===")
-    watcher, worker = launch_watcher_and_worker()
+    watcher, worker = launch_watcher_and_worker(run_idx)
     if not wait_for_worker_ready(worker):
         watcher.terminate(); worker.terminate()
         return {"run": run_idx, "result": "FAIL", "reason": "worker never became ready"}
@@ -188,6 +203,8 @@ def run_one_mission(run_idx):
             worker.wait(timeout=5)
         except subprocess.TimeoutExpired:
             worker.kill()
+        watcher._log_file.close()
+        worker._log_file.close()
 
 
 if __name__ == "__main__":

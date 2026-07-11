@@ -23,6 +23,17 @@ def extract_heading(text: str) -> float | None:
                 hdg = float("".join(digits))
                 if 0 <= hdg <= 360:
                     return hdg
+    # Numeral fallback: Whisper often renders a spoken heading as digits
+    # ("two seven zero" -> "270") instead of words — same substitution
+    # observed live for altitude, now also seen for heading in Week 7's
+    # reliability run. Already anchored on the literal word "heading", so
+    # no separate context gate is needed to avoid misreading an unrelated
+    # number.
+    m = re.search(r"\bheading\D{0,6}(\d{1,3})\b", text.lower())
+    if m:
+        hdg = float(m.group(1))
+        if 0 <= hdg <= 360:
+            return hdg
     return None
 
 

@@ -152,3 +152,12 @@ def test_heading_regressions():
     assert extract_heading("fly heading two nine zero") == 290.0
     assert extract_heading("turn left heading three six zero") == 360.0
     assert extract_heading("cleared to land runway two seven") is None
+
+def test_heading_numeral_form():
+    """Whisper renders spoken headings as digits, not always words —
+    observed live in Week 7's reliability run."""
+    assert extract_heading("turn left heading 270") == 270.0
+    assert extract_heading("fly heading 090") == 90.0
+
+def test_heading_numeral_out_of_range_rejected():
+    assert extract_heading("turn left heading 999") is None
