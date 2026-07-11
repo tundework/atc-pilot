@@ -72,12 +72,15 @@ if __name__ == "__main__":
     # asked for; the poller's GLOBAL_POSITION_INT read could silently
     # consume the ACK arm() was waiting for. Observed live: a 5-run
     # reliability test failed once with "Arming REFUSED (ack=none)" — no
-    # ack arrived at all, not a real pre-arm-check rejection. SITL accepts
-    # multiple simultaneous clients over TCP without issue (only the
-    # earlier port-contention bug involved MAVProxy fighting over the same
-    # port as a direct FlightAPI connection); a second independent
-    # connection here is safe.
-    telemetry_fc = FlightAPI(connection_string=fc.connection_string)
+    # ack arrived at all, not a real pre-arm-check rejection.
+    #
+    # Must use a DIFFERENT SITL serial port (5763), not a second client on
+    # fc's own port (5760): a second connection to the SAME port doesn't
+    # get a heartbeat at all (confirmed live) — the same port-contention
+    # class of bug as the earlier MAVProxy-vs-direct-client issue. 5763 is
+    # the port Mission Planner already uses alongside a 5760 FlightAPI
+    # connection without conflict, so it's the proven-safe second channel.
+    telemetry_fc = FlightAPI(connection_string="tcp:127.0.0.1:5763")
     telemetry_fc.connect()
 
     def telemetry_loop():
