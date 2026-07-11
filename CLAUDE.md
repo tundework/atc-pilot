@@ -220,6 +220,26 @@ fixes closed the gap — see below.
     form still doesn't match N172AB. pipeline.py ownership check is now
     two-tier: `matches(extracted, MY) or contains_my_callsign(text, MY)`.
     Verified: the exact live-miss utterance now gets a correct readback.
+17. **ArduPilot's own failsafes are currently all disabled — the software
+    is the only safety net, and it has no fallback if it crashes.**
+    Checked live (Week 7 Day 3) via direct param query against the sim's
+    default (post `-w` wipe, pre-`ensure_sim_params()`) state:
+    `FS_LONG_ACTN=0`, `FS_SHORT_ACTN=0`, `FS_GCS_ENABL=0`,
+    `BATT_FS_LOW_ACT=0`, `BATT_FS_CRT_ACT=0`, `BATT_LOW_VOLT=0`,
+    `BATT_CRT_VOLT=0` — every failsafe action and every battery-voltage
+    threshold is off. `ensure_sim_params()` does not touch any of these;
+    it only sets `ARMING_SKIPCHK`, `RTL_AUTOLAND`, `WP_RADIUS`. Verified
+    live: took a plane airborne (TAKEOFF mode, ~50m), `kill -9`'d the
+    controlling process, waited 60s with zero controlling software
+    running, then reconnected fresh. The plane was still armed, still in
+    TAKEOFF mode, still holding altitude, actively maneuvering (heading
+    had changed) — TAKEOFF mode's own internal altitude/position hold,
+    not any ArduPilot failsafe, which never fired because none are
+    configured. In real-hardware terms: "software crashed" currently
+    means "plane keeps flying with nobody home," not "plane comes home
+    safely." Before flying real hardware, `FS_GCS_ENABL` (act on lost
+    telemetry) and sane `BATT_FS_*`/`BATT_*_VOLT` values need to be set
+    deliberately — this is a pre-flight checklist item, not optional.
 
 ## Roadmap (remaining)
 
