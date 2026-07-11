@@ -24,9 +24,14 @@ PHASE_RULES = {
     "takeoff":  {"altitude_change", "frequency_change"},
     "airborne": {"heading_change", "altitude_change", "landing_clearance",
                  "hold", "frequency_change"},
-    "approach": {"go_around", "landing_clearance", "heading_change",
+    "approach": {"go_around", "heading_change",
                  "altitude_change", "frequency_change"},
 }
+# landing_clearance deliberately excluded from "approach" — same pattern as
+# takeoff_clearance being excluded from "takeoff": once the clearance that
+# triggers a phase already fired, a repeat is redundant, not a new
+# instruction, and should be rejected by the phase gate rather than
+# silently re-triggering RTL.
 
 # Executing an instruction can move us to a new phase:
 PHASE_TRANSITIONS = {
