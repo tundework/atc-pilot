@@ -75,3 +75,27 @@ multi_instruction_sequence = Scenario(
                      "ACCEPT", "landing_clearance", wait_after_s=70),
     ],
 )
+
+go_around_scenario = Scenario(
+    name="go_around",
+    description="Cleared to land, then a late go-around call. Tests the "
+                "approach->airborne phase transition under time pressure, "
+                "and that a subsequent landing_clearance can re-establish "
+                "approach after recovery.",
+    steps=[
+        ScenarioStep(f"{MY_CS}, cleared for takeoff runway two seven",
+                     "ACCEPT", "takeoff_clearance", wait_after_s=25),
+        # Touchdown observed live at ~47s after this ACCEPT (RTL commanded
+        # here). 30s (not the original 45s) leaves enough margin for the
+        # go-around line's own ASR+synthesis+queue latency (~5-8s) to land
+        # comfortably before that, instead of arriving after the plane
+        # already touched down and got REJECTed (phase already "ground").
+        ScenarioStep(f"{MY_CS}, cleared to land runway two seven",
+                     "ACCEPT", "landing_clearance", wait_after_s=30),
+        # Timed to land during final approach, before touchdown:
+        ScenarioStep(f"{MY_CS}, go around, traffic on the runway",
+                     "ACCEPT", "go_around", wait_after_s=30),
+        ScenarioStep(f"{MY_CS}, cleared to land runway two seven",
+                     "ACCEPT", "landing_clearance", wait_after_s=70),
+    ],
+)
