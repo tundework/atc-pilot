@@ -1,0 +1,15 @@
+ROBUSTNESS PASS SUMMARY
+======================================================================
+repeat  pattern_flight          vectors_and_altitude    straight_in_approach    multi_instruction_sequencego_around               
+1       PASS                    PASS                    PASS                    PASS                    PASS                    
+2       PASS                    PASS                    PASS                    PASS                    PASS                    
+3       PASS                    PASS                    PASS                    PASS                    PASS                    
+4       PASS                    FAIL                    PASS                    PASS                    PASS                    
+5       PASS                    PASS                    PASS                    PASS                    PASS                    
+
+Per-scenario totals:
+  pattern_flight: 5/5
+  vectors_and_altitude: 4/5
+  straight_in_approach: 5/5
+  multi_instruction_sequence: 5/5
+  go_around: 5/5

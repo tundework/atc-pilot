@@ -11,6 +11,20 @@ between synthesized ATC and a human speaking into the mic.
 Run one: `python run_one.py <name>` (SITL must already be up).
 Run all five, N times each: `python run_all.py <N>`.
 
+## Robustness: 24/25 (5 repeats x 5 scenarios)
+
+See `docs/scenario_clips/robustness_pass_5x_result.log` for the full
+grid. The one failure (`vectors_and_altitude`, repeat 4) was a genuine
+one-off ASR mis-transcription, not a code bug: Whisper rendered "turn
+left heading **two** seven zero" as "**tur** left heading **to** seven
+zero" — the homophone "to" (not "two") broke the digit-word extractor.
+Phase tracking was correct throughout; the value was simply
+unparseable due to speech-recognition noise. Deliberately not patched
+with a broad "to"->"two" alias, since "to" is common enough in English
+that it risks false-positive number extraction elsewhere — this is
+accepted, expected real-world ASR variability, not an architectural
+gap.
+
 ## pattern_flight
 
 Standard traffic-pattern flight: takeoff, one circuit (climb to a safe
