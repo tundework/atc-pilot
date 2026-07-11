@@ -64,10 +64,26 @@ if __name__ == "__main__":
 
     supervisor = Supervisor(flight_api=fc)
 
+    # Separate connection for telemetry polling — sharing fc's single
+    # mavutil connection across threads let the poller's recv_match race
+    # arm()'s recv_match(type="COMMAND_ACK") on the same socket. pymavlink
+    # dispatches whichever message arrives to whichever thread happens to
+    # call recv_match next, regardless of the type filter each thread
+    # asked for; the poller's GLOBAL_POSITION_INT read could silently
+    # consume the ACK arm() was waiting for. Observed live: a 5-run
+    # reliability test failed once with "Arming REFUSED (ack=none)" — no
+    # ack arrived at all, not a real pre-arm-check rejection. SITL accepts
+    # multiple simultaneous clients over TCP without issue (only the
+    # earlier port-contention bug involved MAVProxy fighting over the same
+    # port as a direct FlightAPI connection); a second independent
+    # connection here is safe.
+    telemetry_fc = FlightAPI(connection_string=fc.connection_string)
+    telemetry_fc.connect()
+
     def telemetry_loop():
         while True:
             try:
-                pos = fc.get_position()
+                pos = telemetry_fc.get_position()
                 supervisor.update_from_telemetry(pos["alt_m"])
             except Exception as e:
                 print(f"  telemetry poll error: {e}")
