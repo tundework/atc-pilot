@@ -9,7 +9,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "atc_nlp"))
 
 from atc_numbers import (extract_heading, extract_altitude,
-                         extract_flight_level, extract_runway)
+                         extract_flight_level, extract_runway,
+                         extract_frequency)
 from callsign import extract_callsign, matches, contains_my_callsign
 
 
@@ -90,6 +91,18 @@ def test_runway_fallback_never_fires_without_anchor():
     assert extract_runway("wind one four zero degrees four knots") is None
     # side word after a 3-digit run is a heading, not a runway
     assert extract_runway("heading two seven zero right traffic") is None
+
+
+# ---------- frequency: never extracted at all before Week 8 ----------
+
+def test_frequency_decimal():
+    assert extract_frequency("contact tower one one eight decimal three") == 118.3
+
+def test_frequency_point():
+    assert extract_frequency("contact ground one two one point niner") == 121.9
+
+def test_frequency_absent():
+    assert extract_frequency("cleared to land runway two seven") is None
 
 
 # ---------- #16: short-form own callsign ----------

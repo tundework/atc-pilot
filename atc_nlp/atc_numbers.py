@@ -135,6 +135,33 @@ def extract_runway(text: str) -> str | None:
     return None
 
 
+def extract_frequency(text: str) -> float | None:
+    """'contact tower one one eight decimal three' -> 118.3.
+    Was previously never extracted at all (bert_parser.py hardcoded
+    frequency=None) — found live in Week 8's scenario library when a
+    frequency_change instruction got correctly classified but then
+    REJECTed for a "missing" value that was never being parsed in the
+    first place. Anchored on 'decimal'/'point'; up to 3 whole-number
+    digits before, one or more fractional digits after."""
+    words = re.findall(r"[a-z-']+", text.lower())
+    for i, w in enumerate(words):
+        if w in ("decimal", "point"):
+            whole = []
+            j = i - 1
+            while j >= 0 and words[j] in DIGITS and len(whole) < 3:
+                whole.insert(0, DIGITS[words[j]])
+                j -= 1
+            frac = []
+            for nxt in words[i + 1:]:
+                if nxt in DIGITS:
+                    frac.append(DIGITS[nxt])
+                else:
+                    break
+            if whole and frac:
+                return float(f"{''.join(whole)}.{''.join(frac)}")
+    return None
+
+
 if __name__ == "__main__":
     tests_h = [
         ("fly heading two nine zero", 290),
