@@ -42,6 +42,19 @@ def test_altitude_thousand_hundred_still_works():
 def test_altitude_none_when_no_altitude():
     assert extract_altitude("go around") is None
 
+def test_altitude_numeral_form():
+    """Whisper renders spoken altitudes as digits, not always words —
+    observed live in Week 7's reliability run."""
+    assert extract_altitude("climb and maintain 1500") == 1500.0
+    assert extract_altitude("descend and maintain 2,500") == 2500.0
+
+def test_altitude_numeral_requires_context_anchor():
+    """A stray number with no altitude-context word must not be guessed."""
+    assert extract_altitude("squawk 1500") is None
+
+def test_altitude_numeral_out_of_range_rejected():
+    assert extract_altitude("climb and maintain 99") is None
+
 
 # ---------- #14: runways ----------
 

@@ -69,7 +69,22 @@ def extract_altitude(text: str) -> float | None:
         elif w == "hundred" and i > 0 and words[i - 1] in DIGITS:
             total += float(DIGITS[words[i - 1]]) * 100
             found = True
-    return total if found else None
+    if found:
+        return total
+    # Numeral fallback: Whisper often renders a spoken altitude as digits
+    # ("one thousand five hundred" -> "1500") instead of words — observed
+    # live in Week 7's reliability run, where this exact substitution
+    # caused a real altitude_change instruction to be silently dropped.
+    # Anchored on an altitude-context word so a stray 3+ digit number
+    # elsewhere in the utterance (flight number, squawk code) can't be
+    # misread as an altitude.
+    if re.search(r"\b(climb|descend|maintain|altitude|feet)\b", text.lower()):
+        m = re.search(r"\b(\d{3,5})\b", text.replace(",", ""))
+        if m:
+            val = float(m.group(1))
+            if 100 <= val <= 60000:
+                return val
+    return None
 
 
 SIDES = {"left": "L", "right": "R", "center": "C", "centre": "C"}
