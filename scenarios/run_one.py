@@ -28,7 +28,14 @@ if __name__ == "__main__":
         print(f"Available: {[n for n in dir(lib) if not n.startswith('_') and n != 'Scenario' and n != 'ScenarioStep' and n != 'MY_CS']}")
         sys.exit(1)
 
-    scenario = getattr(lib, sys.argv[1])
+    # Look up by Scenario.name, not the Python variable name — they don't
+    # always match (go_around_scenario's .name is "go_around").
+    candidates = {getattr(lib, n).name: getattr(lib, n) for n in dir(lib)
+                 if not n.startswith("_") and n not in ("Scenario", "ScenarioStep", "MY_CS")}
+    if sys.argv[1] not in candidates:
+        print(f"Unknown scenario '{sys.argv[1]}'. Available: {list(candidates)}")
+        sys.exit(1)
+    scenario = candidates[sys.argv[1]]
 
     print("Connecting to SITL...")
     fc = FlightAPI()

@@ -6,9 +6,10 @@ An AI-piloted RC plane (simulation-first) that responds to **spoken ATC instruct
 Pipeline: microphone → speech-to-text → instruction parser → safety supervisor → MAVLink → ArduPilot SITL.
 
 **Deliverable:** YouTube video + blog post + this public repo (github.com/tundework/atc-pilot).
-**Timeline:** 12-week plan at ~20 hrs/week. Currently **starting Week 7** —
-Weeks 1-6 complete (see [docs/week6_milestone.md](docs/week6_milestone.md)
-for the first fully voice-commanded flight).
+**Timeline:** 12-week plan at ~20 hrs/week. Currently **starting Week 9** —
+Weeks 1-8 complete (see [docs/week6_milestone.md](docs/week6_milestone.md)
+for the first fully voice-commanded flight, and
+[scenarios/README.md](scenarios/README.md) for the 5-scenario library).
 **Owner background:** one semester of deep learning; learning Linux/git/MAVLink through this project.
 
 ## Environment & conventions (IMPORTANT)
@@ -97,10 +98,19 @@ atc-pilot/
 │   ├── data_train/test.jsonl, bert_train/test.jsonl
 │   └── atco2/               # 288MB real dataset — gitignored, licensed data
 ├── tests/test_flight_api.py # 5 pytest tests vs live SITL
-├── tests/test_atc_nlp.py    # 27 pure unit tests for rule extractors (no SITL/GPU)
+├── tests/test_atc_nlp.py    # 33 pure unit tests for rule extractors (no SITL/GPU)
+├── tests/test_supervisor*.py # gate + idempotency tests (Week 6/7)
 ├── voice/                   # ASR, TTS, pipeline.py, watch.py + worker.py (live, Week 5/6)
 ├── supervisor/              # supervisor.py (4 gates, phase state machine, decisions.jsonl)
-├── scenarios/                # empty — Week 8
+├── scenarios/                # 5-scenario library (Week 8) — see scenarios/README.md
+│   ├── scenario.py          # Scenario/ScenarioStep dataclasses
+│   ├── run_scenario.py      # core runner: synth ATC line -> real pipeline -> verify verdict
+│   ├── run_one.py           # CLI: run one named scenario against live SITL
+│   ├── run_all.py           # CLI: run every scenario N times, tabulate pass/fail
+│   └── lib.py               # the 5 scenarios (pattern_flight, vectors_and_altitude,
+│                             #   straight_in_approach, multi_instruction_sequence, go_around)
+├── main.py                  # single entry point: starts watch.py + worker.py together (Week 7)
+├── scripts/day4_reliability_run.py  # no-voice reliability loop (TTS-synthesized ATC)
 └── README.md
 ```
 
@@ -252,19 +262,39 @@ fixes closed the gap — see below.
   **DONE** — see docs/week6_milestone.md for the first fully voice-commanded flight
   (takeoff -> airborne (telemetry-confirmed) -> heading change -> landing clearance
   -> touchdown (telemetry-confirmed), all five steps traced in decisions.jsonl).
-- **Week 7 (now):** Integration.
-  - Formalize a single entry point (currently watch.py + worker.py run by
-    convention) — document the exact startup runbook.
-  - Handle the seams deliberately: duplicate clearances (phase gate should
-    already reject a repeat "cleared for takeoff" — verify it), and worker
-    crashes mid-flight (does ArduPilot's own link-loss failsafe RTL the
-    plane independent of the Python process?).
-  - Run one complete mission (takeoff -> vector -> altitude change -> landing
-    clearance -> touchdown) 3-5 times back to back with zero manual
-    intervention — Week 6 Day 5 proved the concept works once; Week 7's bar
-    is proving it works *reliably*.
-- **Week 8:** 4 scenarios + 1 failure demo, repeatable via pre-recorded TTS ATC.
-- **Week 9:** Adversarial suite (similar callsigns, garbled audio, phase-invalid
+- ~~**Week 7:** Integration.~~ **DONE** — main.py single entry point +
+  docs/RUNBOOK.md; idempotency tests (duplicate takeoff/landing clearance
+  correctly rejected, repeated heading correctly accepted — found and
+  fixed a real gap: PHASE_RULES["approach"] still allowed a redundant
+  landing_clearance); documented that ArduPilot ships with zero
+  failsafes configured (verified live: killed the controlling process
+  mid-flight, plane kept flying with no intervention — a real
+  hardware-readiness gap, not fixed, flagged for pre-flight checklist);
+  built a no-voice reliability harness (scripts/day4_reliability_run.py,
+  TTS-synthesized ATC through the real pipeline) and used it to find and
+  fix two real bugs — extract_heading()/extract_altitude() couldn't
+  parse numeral-form numbers ("270"/"1500" vs "two seven zero"/"one
+  thousand five hundred", since Whisper renders both forms
+  unpredictably), and a mavlink connection race between arm() and the
+  telemetry-polling thread that ate a COMMAND_ACK. Final 5x reliability
+  run: 5/5 clean.
+- ~~**Week 8:** Scenario library — 4 scenarios + 1 failure demo, repeatable
+  via TTS-synthesized ATC.~~ **DONE** — see scenarios/README.md.
+  pattern_flight, vectors_and_altitude, straight_in_approach,
+  multi_instruction_sequence (exercises Week 7's idempotency rule live),
+  and go_around (the failure showcase — timed to call a go-around while
+  genuinely on final approach, before touchdown; confirmed via
+  decisions.jsonl that phase reads "approach" at the exact moment,
+  proving the Week 6 Day 3 phase transition works under real timing
+  pressure). Found and fixed two more real gaps along the way:
+  bert_parser.py never extracted frequency values at all
+  (frequency: None hardcoded, no extract_frequency() existed), and
+  "cleared straight-in approach runway X" misclassifies as
+  takeoff_clearance (a synthetic-training-data gap, worked around with
+  alternate phrasing rather than retraining). scenarios/run_all.py runs
+  every scenario N times against a freshly-relaunched SITL each time and
+  tabulates pass/fail — a 5x robustness pass is the Day 5 bar.
+- **Week 9 (now):** Adversarial suite (similar callsigns, garbled audio, phase-invalid
   instructions) — supervisor must pass 100%.
 - **Week 10:** Buffer / stretch (CV runway detection descoped to stretch).
 - **Weeks 11–12:** Overlay dashboard, record, edit, publish. Production time is sacred.

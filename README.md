@@ -9,8 +9,8 @@ An AI-piloted RC plane that responds to spoken ATC instructions.
 - [x] Week 4: DistilBERT parser, LLM-vs-BERT benchmark, BERT declared primary — see [docs/benchmark.md](docs/benchmark.md)
 - [x] Week 5: Voice pipeline (Whisper ASR + Piper TTS), live end to end
 - [x] Week 6: Safety supervisor — phase-aware gates, verified flight commands, full voice-to-flight wiring — see [docs/week6_milestone.md](docs/week6_milestone.md)
-- [ ] Week 7: Integration
-- [ ] Week 8: Scenarios + failure demo
+- [x] Week 7: Integration — main.py entry point, reliability harness, 5/5 clean run
+- [x] Week 8: Scenario library — 5 scenarios incl. go-around failure demo — see [scenarios/README.md](scenarios/README.md)
 - [ ] Week 9: Adversarial suite
 - [ ] Week 10: Buffer / stretch
 - [ ] Weeks 11-12: Video + blog
