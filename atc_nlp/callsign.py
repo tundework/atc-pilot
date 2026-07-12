@@ -50,8 +50,18 @@ def extract_callsign(text: str) -> str | None:
 
     if not runs:
         return None
-    # If multiple candidates, take the longest (most specific)
-    return "N" + max(runs, key=len)
+    # If multiple candidates (e.g. a traffic advisory naming another
+    # aircraft in the same transmission), take the FIRST one — real ATC
+    # phraseology addresses the target aircraft first, with any other
+    # referenced aircraft mentioned afterward. Previously took the
+    # LONGEST run instead, which a Week 9 adversarial test showed could
+    # select a differently-addressed aircraft's callsign over ours if it
+    # happened to produce a longer alphanumeric string. The ownership
+    # gate itself was never actually fooled by this (pipeline.py's
+    # contains_my_callsign() fallback independently confirms ownership,
+    # and readback.py never reads this field back), but the extracted
+    # value — logged to decisions.jsonl — was factually wrong.
+    return "N" + runs[0]
 
 
 def matches(extracted: str | None, my_callsign: str) -> bool:

@@ -52,6 +52,17 @@ def extract_flight_level(text: str) -> float | None:
                 fl = float("".join(digits))
                 if 10 <= fl <= 450:
                     return fl * 100
+    # Numeral fallback: word-tokenization (re.findall(r"[a-z-']+", ...))
+    # cannot see digit characters at all, so a numeral-form flight level
+    # ("flight level 70") was silently invisible to the word-based scan
+    # above — same class of gap Week 7 found and fixed for heading/
+    # altitude, found here in Week 9's adversarial audit before it ever
+    # broke a live instruction.
+    m = re.search(r"\bflight level\D{0,6}(\d{1,3})\b", text.lower())
+    if m:
+        fl = float(m.group(1))
+        if 10 <= fl <= 450:
+            return fl * 100
     return None
 
 
@@ -119,6 +130,17 @@ def extract_runway(text: str) -> str | None:
             if j < len(words) and words[j] in SIDES:
                 rwy += SIDES[words[j]]
             return rwy
+    # Numeral fallback: word-tokenization can't see digit characters, so a
+    # numeral-form runway ("runway 27") was silently invisible to the
+    # keyword scan above — same gap class as extract_flight_level's fix
+    # above, found in Week 9's adversarial audit.
+    m = re.search(r"\brunway\D{0,6}(\d{1,2})\s*(left|right|center|centre)?\b",
+                 text.lower())
+    if m and 1 <= int(m.group(1)) <= 36:
+        rwy = m.group(1)
+        if m.group(2):
+            rwy += SIDES[m.group(2)]
+        return rwy
     # No 'runway' keyword: require the side-word anchor, so bare numbers
     # (headings, winds, frequencies) can never match
     for i, w in enumerate(words):
@@ -159,6 +181,17 @@ def extract_frequency(text: str) -> float | None:
                     break
             if whole and frac:
                 return float(f"{''.join(whole)}.{''.join(frac)}")
+    # Numeral fallback: word-tokenization drops digit characters AND the
+    # literal decimal point, so a numeral-form frequency ("118.3") was
+    # silently invisible to the word-based scan above — same gap class
+    # found in extract_flight_level/extract_runway above. Anchored on a
+    # frequency-context word so an unrelated decimal number can't be
+    # misread as a frequency.
+    if re.search(r"\b(contact|tower|ground|frequency|unicom|approach|"
+                r"departure|center|centre)\b", text.lower()):
+        m = re.search(r"\b(1[0-3]\d\.\d{1,3})\b", text.lower())
+        if m:
+            return float(m.group(1))
     return None
 
 

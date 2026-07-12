@@ -16,6 +16,19 @@ _tokenizer = AutoTokenizer.from_pretrained(MODEL_DIR)
 _model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR).to(_device)
 _model.eval()
 
+# Real ATC transmissions are short (a sentence or two); this is well above
+# any realistic legitimate one. Found in Week 9's adversarial audit: the
+# tokenizer's truncation (max_length=64 subword tokens) silently drops
+# anything past it, and once a real instruction gets pushed past that
+# window by enough padding/rambling text, BERT classifies whatever's left
+# in the window instead — a verified "cleared for takeoff" was
+# misclassified as frequency_change once buried under ~60+ words of
+# filler. Rule-based slot extraction below is unaffected (it always scans
+# the full untruncated text), but intent alone can't be trusted on
+# anomalously long input, so it's forced to "unknown" (safe: triggers
+# "say again" in readback.py) rather than trusting a truncation artifact.
+MAX_REASONABLE_WORDS = 40
+
 
 def parse_instruction(text: str) -> dict:
     """Same interface as llm_parser.parse_instruction — swap freely."""
@@ -25,6 +38,8 @@ def parse_instruction(text: str) -> dict:
         logits = _model(**inputs).logits
     intent_id = int(logits.argmax(dim=-1))
     intent = _model.config.id2label[intent_id]
+    if len(text.split()) > MAX_REASONABLE_WORDS:
+        intent = "unknown"
 
     d = {
         "callsign": extract_callsign(text),
