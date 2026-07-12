@@ -6,10 +6,12 @@ An AI-piloted RC plane (simulation-first) that responds to **spoken ATC instruct
 Pipeline: microphone → speech-to-text → instruction parser → safety supervisor → MAVLink → ArduPilot SITL.
 
 **Deliverable:** YouTube video + blog post + this public repo (github.com/tundework/atc-pilot).
-**Timeline:** 12-week plan at ~20 hrs/week. Currently **starting Week 9** —
-Weeks 1-8 complete (see [docs/week6_milestone.md](docs/week6_milestone.md)
-for the first fully voice-commanded flight, and
-[scenarios/README.md](scenarios/README.md) for the 5-scenario library).
+**Timeline:** 12-week plan at ~20 hrs/week. Currently **starting Week 10** —
+Weeks 1-9 complete (see [docs/week6_milestone.md](docs/week6_milestone.md)
+for the first fully voice-commanded flight,
+[scenarios/README.md](scenarios/README.md) for the 5-scenario library, and
+[docs/security_notes.md](docs/security_notes.md) for the Week 9
+adversarial-suite results).
 **Owner background:** one semester of deep learning; learning Linux/git/MAVLink through this project.
 
 ## Environment & conventions (IMPORTANT)
@@ -98,17 +100,21 @@ atc-pilot/
 │   ├── data_train/test.jsonl, bert_train/test.jsonl
 │   └── atco2/               # 288MB real dataset — gitignored, licensed data
 ├── tests/test_flight_api.py # 5 pytest tests vs live SITL
-├── tests/test_atc_nlp.py    # 33 pure unit tests for rule extractors (no SITL/GPU)
+├── tests/test_atc_nlp.py    # 35 pure unit tests for rule extractors (no SITL/GPU)
 ├── tests/test_supervisor*.py # gate + idempotency tests (Week 6/7)
+├── tests/test_adversarial.py # Week 9 adversarial suite, 28 tests, 100% pass —
+│                             #   see docs/security_notes.md
 ├── voice/                   # ASR, TTS, pipeline.py, watch.py + worker.py (live, Week 5/6)
 ├── supervisor/              # supervisor.py (4 gates, phase state machine, decisions.jsonl)
-├── scenarios/                # 5-scenario library (Week 8) — see scenarios/README.md
+├── scenarios/                # 6-scenario library (Weeks 8-9) — see scenarios/README.md
 │   ├── scenario.py          # Scenario/ScenarioStep dataclasses
 │   ├── run_scenario.py      # core runner: synth ATC line -> real pipeline -> verify verdict
 │   ├── run_one.py           # CLI: run one named scenario against live SITL
 │   ├── run_all.py           # CLI: run every scenario N times, tabulate pass/fail
-│   └── lib.py               # the 5 scenarios (pattern_flight, vectors_and_altitude,
-│                             #   straight_in_approach, multi_instruction_sequence, go_around)
+│   └── lib.py               # pattern_flight, vectors_and_altitude, straight_in_approach,
+│                             #   multi_instruction_sequence, go_around,
+│                             #   premature_landing_clearance (Week 9 Day 3)
+├── docs/security_notes.md   # Week 9: structural immunity vs explicit guards vs open risks
 ├── main.py                  # single entry point: starts watch.py + worker.py together (Week 7)
 ├── scripts/day4_reliability_run.py  # no-voice reliability loop (TTS-synthesized ATC)
 └── README.md
@@ -250,6 +256,38 @@ fixes closed the gap — see below.
     safely." Before flying real hardware, `FS_GCS_ENABL` (act on lost
     telemetry) and sane `BATT_FS_*`/`BATT_*_VOLT` values need to be set
     deliberately — this is a pre-flight checklist item, not optional.
+18. **Anomalously long/padded instruction text could misclassify intent —
+    a genuine safety-relevant bug, found and fixed in Week 9's adversarial
+    audit.** BERT's tokenizer truncates at 64 subword tokens; padding an
+    instruction with enough filler pushes the real instruction past that
+    window, and BERT classifies whatever's left instead of the actual
+    instruction. Verified: a real "cleared for takeoff" was classified as
+    frequency_change once buried under ~60+ words of filler — not a safe
+    fallback, an actual wrong classification. Rule-based slot extraction
+    (runway/heading/altitude/frequency) is unaffected since it always
+    scans the full untruncated text. **FIXED:** `MAX_REASONABLE_WORDS = 40`
+    sanity gate in bert_parser.py forces intent="unknown" (safe — "say
+    again") on anomalously long text, rather than trusting a truncation
+    artifact. Deliberately not a BERT retrain (out of scope this week,
+    would risk disturbing the Week 4 benchmark).
+19. **extract_callsign() picked the wrong callsign on multi-callsign
+    utterances.** When a transmission named both our callsign and another
+    aircraft's (e.g. a traffic advisory), the "pick the longest candidate"
+    heuristic could select the OTHER aircraft's callsign if it happened to
+    produce a longer alphanumeric string — even though ours was named
+    first (real ATC phraseology addresses the target aircraft first). The
+    ownership gate itself was never actually fooled (pipeline.py's
+    contains_my_callsign() fallback independently confirms ownership), but
+    the logged instruction callsign was factually wrong. **FIXED (Week 9):**
+    take the first candidate run instead of the longest.
+20. **Numeral-form parsing was still broken in three more extractors.**
+    Week 7 fixed extract_heading()/extract_altitude() failing on
+    numeral-form ASR output ("270" vs "two seven zero") — their word-only
+    tokenization regex can't see digit characters at all. Week 9's
+    adversarial audit found the identical gap, never fixed, in
+    extract_flight_level(), extract_runway(), and extract_frequency().
+    **FIXED:** same numeral-fallback pattern (raw-text regex anchored on
+    the relevant keyword) applied to all three.
 
 ## Roadmap (remaining)
 
@@ -294,9 +332,27 @@ fixes closed the gap — see below.
   alternate phrasing rather than retraining). scenarios/run_all.py runs
   every scenario N times against a freshly-relaunched SITL each time and
   tabulates pass/fail — a 5x robustness pass is the Day 5 bar.
-- **Week 9 (now):** Adversarial suite (similar callsigns, garbled audio, phase-invalid
-  instructions) — supervisor must pass 100%.
-- **Week 10:** Buffer / stretch (CV runway detection descoped to stretch).
+- ~~**Week 9:** Adversarial suite (similar callsigns, garbled audio, phase-invalid
+  instructions) — supervisor must pass 100%.~~ **DONE** — see
+  docs/security_notes.md and tests/test_adversarial.py (28 tests, 100%
+  pass). One real, safety-relevant bug found and fixed: padding an
+  instruction with enough filler text pushed it past BERT's 64-token
+  truncation window and caused genuine intent MISCLASSIFICATION (a
+  verified "cleared for takeoff" was classified as frequency_change) —
+  fixed with a word-count sanity gate forcing intent=unknown on
+  anomalously long input, not a BERT retrain. Also found and fixed:
+  extract_callsign() picked the LONGEST candidate callsign on
+  multi-callsign text instead of the first (real ATC phraseology
+  addresses the target aircraft first); numeral-form parsing was still
+  broken (same class of gap as Week 7's heading/altitude fix) in
+  extract_flight_level/extract_runway/extract_frequency, all three
+  fixed. BERT's fixed 8-label classification space is structurally
+  immune to free-text prompt injection by design — documented, not
+  re-tested every time. scenarios/lib.py::premature_landing_clearance
+  added as the one live-SITL timing case (landing clearance immediately
+  after takeoff, before telemetry advances phase past "takeoff") —
+  confirms the phase gate uses actual current state, not assumed state.
+- **Week 10 (now):** Buffer / stretch (CV runway detection descoped to stretch).
 - **Weeks 11–12:** Overlay dashboard, record, edit, publish. Production time is sacred.
 
 ## Suggested review areas

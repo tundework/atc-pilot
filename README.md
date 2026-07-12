@@ -11,7 +11,7 @@ An AI-piloted RC plane that responds to spoken ATC instructions.
 - [x] Week 6: Safety supervisor — phase-aware gates, verified flight commands, full voice-to-flight wiring — see [docs/week6_milestone.md](docs/week6_milestone.md)
 - [x] Week 7: Integration — main.py entry point, reliability harness, 5/5 clean run
 - [x] Week 8: Scenario library — 5 scenarios incl. go-around failure demo — see [scenarios/README.md](scenarios/README.md)
-- [ ] Week 9: Adversarial suite
+- [x] Week 9: Adversarial suite — 28 tests, 100% pass, one real safety bug found and fixed (BERT truncation misclassification) — see [docs/security_notes.md](docs/security_notes.md)
 - [ ] Week 10: Buffer / stretch
 - [ ] Weeks 11-12: Video + blog
 
