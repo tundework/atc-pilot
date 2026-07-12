@@ -99,3 +99,28 @@ go_around_scenario = Scenario(
                      "ACCEPT", "landing_clearance", wait_after_s=70),
     ],
 )
+
+premature_landing_clearance = Scenario(
+    name="premature_landing_clearance",
+    description="Week 9 Day 3 adversarial case: a landing clearance "
+                "arrives immediately after takeoff, before telemetry has "
+                "had time to advance phase past 'takeoff' (that only "
+                "happens once the altimeter crosses 30m via the "
+                "telemetry poller, not the instant takeoff is commanded). "
+                "Confirms the phase gate consults actual current state, "
+                "not assumed/instantaneous state.",
+    steps=[
+        ScenarioStep(f"{MY_CS}, cleared for takeoff runway two seven",
+                     "ACCEPT", "takeoff_clearance", wait_after_s=0),
+        # 0s explicit wait — process_audio() itself already adds ~5s of
+        # unavoidable round-trip (ASR + parse + readback synth/playback)
+        # before the NEXT step's audio is even queued, and the climb
+        # crosses 30m in as little as ~8s, so there is very little margin
+        # to spend on top of that.
+        ScenarioStep(f"{MY_CS}, cleared to land runway two seven",
+                     "REJECT", "landing_clearance", wait_after_s=25),
+        # Now genuinely airborne — the same instruction, re-sent, is valid.
+        ScenarioStep(f"{MY_CS}, cleared to land runway two seven",
+                     "ACCEPT", "landing_clearance", wait_after_s=70),
+    ],
+)

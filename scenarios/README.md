@@ -78,3 +78,21 @@ the go-around call lands mid-approach rather than after the plane has
 already touched down — confirmed via `decisions.jsonl` showing
 `phase="approach"` at the exact moment the go-around instruction is
 processed, not `"ground"`.
+
+## premature_landing_clearance
+
+Week 9 Day 3's adversarial phase-injection case, live: a landing
+clearance is sent immediately after takeoff, before telemetry has had
+time to advance phase past `"takeoff"` (that only happens once the
+altimeter crosses 30m via the telemetry poller — not the instant
+takeoff is commanded). Confirms the phase gate consults actual current
+state, not assumed/instantaneous state. Genuinely tight timing to
+construct: `process_audio()`'s own round trip (ASR + parse + readback
+synthesis/playback) adds ~5s of unavoidable overhead per step, and the
+climb crosses 30m in as little as ~8s, leaving very little margin.
+`wait_after_s=0` on the takeoff step turned out to be enough — the
+step's own processing overhead alone provided the delay needed to land
+the premature instruction while still genuinely in `"takeoff"` phase
+(confirmed: REJECT at `phase="takeoff"`, landing before the
+`takeoff -> airborne` transition fires), followed by the same
+instruction correctly ACCEPTed once actually airborne.
